@@ -3,19 +3,15 @@ import os
 import streamlit as st
 from streamlit_chat import message
 
-
 from langchain import OpenAI, PromptTemplate
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
 
-load_dotenv()
-
-os.environ['OPENAI_API_TOKEN'] = os.environ.get('OPENAI_API_KEY')
 
 template = """
-Prepare 680 - 750 words scenario script for video {input}. Use this info about story: {history}. 
-Content: 20-word intro with the keywords from the topic sentence coherently present in it (not forced). 
-A full story (with sections if necessary) breaking down the timeline of things. Some formatting rules: 
+You are scriptwriter. Prepare 4000-6000 words scenario script for YouTube video {input}.Use this info about story: {history}
+Use about 500 words to describe each person. Content: Firstly, intro with the keywords from the topic sentence coherently present in it (not forced), 
+then, prepare full story (with sections if necessary) breaking down the timeline of things. Some formatting rules: 
 - Put a full-stop after each header and leave one paragraph space above and below 
 - Make Sure Some Symbols Are Written Differently: 
 a) Use words for dates: 1970s = nineteen-seventies. 
@@ -34,56 +30,77 @@ Key things to do:
 - If there’s enough content, just write the story as a timeline of the events. 
 - If there’s not enough content, write the story using “narratives”. 
 This involves making use of the central theme, or idea, or stereotype, or expected presuppositions of the audience to write the story 
+in a way that makes it seem like it’s a story that’s being told.
 
-To write a story with the narrative, divide the story into different parts: 
-1) Backstory: Introduce the topic and the main event in the story. Do not keep main event from the viewers. 
-We need to introduce them event early in a way that will hook them and buttress the narrative that we’ve come up with for the story. 
-We need to convince the viewers that it is what they should care about. 
-Each time we move to a different topic, make transitions into the next sections with this narrative in mind. 
-2) Middle: Here, discuss every other thing we can relate to the story and/or the narrative. 
-Tell users about: similar cases like the one we’re discussing that explains why what we’re discussing is important, other events in our own story that are a continuation of the events that have occurred. 
-3) End: Conclude with a section reprising the narrative. Everything must be a story, so it should be a continued story on the main events of the topic, 
-the conclusion of the story, or another story that fits with the narrative."""
+Please, don't make up things. The story should be educative and contain facts. Add as many details as possible.
+Please avoid using buzzwords like 'addtionally', 'in this section'... 
+Don't repeat name of character too many times. Make sure that all information is in line with the topic and true.
+"""
 
-script_prompt = PromptTemplate(
-    input_variables=["input", "history"],
-    template=template
+from langchain.schema import (
+    SystemMessage,
+    HumanMessage,
+    AIMessage
 )
 
-llm = OpenAI(
-	temperature=0.1,
-	model_name="text-davinci-003"
-)
+def init():
+    load_dotenv()
 
-conversation = ConversationChain(prompt=script_prompt, llm=llm, memory=ConversationBufferMemory(ai_prefix="ScriptWriter", human_prefix="MainEditor"), verbose=True)
+    if os.getenv("OPENAI_API_KEY") is None or os.getenv("OPENAI_API_KEY") == "":
+        print("OPENAI_API_KEY is not set")
+        exit(1)
+    else:
+        print("OPENAI_API_KEY is set")
 
-def generate_response(prompt):
-    pred = conversation.predict(input=prompt)
-    return pred
+    st.set_page_config(
+        page_title="ScriptWriter Bot",
+        page_icon="🖋🎥"
+    )
 
-start_editor = 'Hi!'
+def main():
+    init()
 
-start_writer = 'Hi! I am your ScriptWriter. Specify the topic and social media. I will give you a script'
-st.title("ScriptWriter Bot")
+    chat = OpenAI(
+        temperature=0.1,	
+        model_name="gpt-3.5-turbo"
+        )
 
-if 'generated' not in st.session_state:
-    st.session_state['generated'] = [start_writer]
+    if "messages" not in st.session_state:
+        st.session_state.messages = [
+            SystemMessage(input_variables=["input", "history"], content=template)
+        ]
 
-if 'past' not in st.session_state:
-    st.session_state['past'] = [start_editor]
+    st.header("ScriptWriter Bot 🖋🎥")
 
-def get_text():
-    input_text = st.text_input("", key="input")
-    return input_text
+    PROMPT = PromptTemplate(template=template, input_variables=["input", "history"])
 
-user_input = get_text()
+    conversation = ConversationChain(prompt=PROMPT, llm=chat, memory=ConversationBufferMemory(ai_prefix="ScriptWriter", human_prefix="MainEditor"), verbose=True)
 
-if user_input:
-    output = generate_response(user_input)
-    st.session_state.past.append(user_input)
-    st.session_state.generated.append(output)
+    def generate_response(prompt):
+        pred = conversation.predict(input=prompt)
+        return pred
 
-if st.session_state['generated']:
-    for i in range(len(st.session_state['generated'])-1, -1, -1):
-        message(st.session_state["past"][i], is_user=True, key=str(i) + '_user')
-        message(st.session_state["generated"][i], key=str(i))
+    with st.sidebar:
+        user_input = st.text_input("Topic for script: ", key="user_input")
+
+        if 'generated' not in st.session_state:
+            start_writer = 'Hi! I am your ScriptWriter. Specify your topic in the slider. I will give you a script'
+            st.session_state['generated'] = [start_writer]
+
+        if 'past' not in st.session_state:
+            st.session_state['past'] = ['Hi!']
+
+        if user_input:
+            st.session_state.messages.append(HumanMessage(content=user_input))
+            with st.spinner("Thinking..."):
+                response = generate_response(user_input)
+            st.session_state.past.append(user_input)
+            st.session_state.generated.append(response)
+    
+    if st.session_state['generated']:
+        for i in range(len(st.session_state['generated'])-1, -1, -1):
+            message(st.session_state["past"][i], is_user=True, key=str(i) + '_user')
+            message(st.session_state["generated"][i], key=str(i))
+
+if __name__ == '__main__':
+    main()
