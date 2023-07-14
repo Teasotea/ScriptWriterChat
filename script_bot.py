@@ -6,6 +6,7 @@ from streamlit_chat import message
 from langchain import OpenAI, PromptTemplate
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
+from langchain.chat_models import ChatOpenAI
 
 template = """
 CONTEXT:
@@ -95,7 +96,7 @@ def init():
 def main():
     init()
 
-    chat = OpenAI(
+    chat = ChatOpenAI(
         temperature=0.1,	
         model_name="gpt-3.5-turbo"
         )
