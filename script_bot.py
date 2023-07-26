@@ -46,7 +46,6 @@ def main():
     conversation = ConversationChain(prompt=PROMPT, llm=chat, memory=ConversationBufferMemory(ai_prefix="ScriptWriter", human_prefix="MainEditor"), verbose=True)
     short_conversation = ConversationChain(prompt=PROMPT, llm=chat, verbose=True)
     
-     # generate a function  that should do try exept and return error message if the response is too long 
     def generate_response(prompt):
         try:
             return conversation.predict(input=prompt)
@@ -63,13 +62,13 @@ def main():
         st.header("🖋 Script Details")
         st.subheader("Specify below the topic, type of script, and social media platform: ")
         user_input = st.text_input("Enter the topic: ", key="user_input")
-        script_type = st.selectbox("Select the type of script", [None, "List Script", "Story Script"])
+        script_type = st.selectbox("Select the type of script", [None, SCRIPT_TYPE[0], SCRIPT_TYPE[1]])
         
-        if script_type == "List Script":
+        if script_type == SCRIPT_TYPE[1]:
             topX = st.text_input("Enter number of items in the list (Top X..), X =", key = "top X")
             if topX: topX = int(topX)
             
-        platform = st.selectbox("Select platform", [None, "YouTube", "SnapChat"])
+        platform = st.selectbox("Select platform", [None, SOCIAL_MEDIA[0], SOCIAL_MEDIA[1]])
         
         is_generate_script = st.button('Generate script')
         if is_generate_script and not user_input:
@@ -105,7 +104,7 @@ def main():
             PROMPT_ORDER = LIST_SC_PROMPT(topX, user_input) 
         
         topXitems = []
-        print(topX, script_type, platform, PROMPT_ORDER)
+        # print(topX, script_type, platform, PROMPT_ORDER)
             
         if script_type != None and platform != None and is_generate_script:
             st.session_state.messages.append(HumanMessage(content='topic:' + user_input))
@@ -113,7 +112,7 @@ def main():
             resulting_response = []
             for i, prompt in enumerate(PROMPT_ORDER):
                 with st.spinner("Please, wait. I am in the process of creating script for you..."):
-                    if topX:
+                    if script_type == SCRIPT_TYPE[1]:
                         if topXitems == []:
                             final_prompt = 'SESSION INFO: topic - Top ' + str(topX)+ ' ' + user_input + ' ' + prompt
                         else:
@@ -121,7 +120,7 @@ def main():
                     else:
                         final_prompt = 'SESSION INFO: topic - ' + user_input + ' ' + prompt
                     response = generate_response(final_prompt) 
-                    if i == 1 and topX:
+                    if i == 1 and script_type == SCRIPT_TYPE[1]:
                         topXitems = response #.split('[')[1].split(']')[0].split(',')
                         resulting_response.append('RESPONSE #' + str(i+1) + ': ' + response)
                     else:
@@ -132,7 +131,6 @@ def main():
         elif not is_generate_script and not is_edit_mode:
             st.error("Click the \"Generate script\" button to generate script.")
          
-    
     if st.session_state['generated']:
         for i in range(len(st.session_state['generated'])-1, -1, -1):
             message(st.session_state["past"][i], is_user=True, key=str(i) + '_user')

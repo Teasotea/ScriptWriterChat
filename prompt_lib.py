@@ -46,7 +46,7 @@ We need to introduce them event early in a way that will hook them and buttress 
 We need to convince the viewers that it is what they should care about. 
 Each time we move to a different topic, make transitions into the next sections with this narrative in mind.
 
-Don't conclude the story, don't prepare epilogue, don't give advice or opinions. Keep it almost strictly a story.
+Don't conclude the story, just iterupt it, don't prepare epilogue, don't give advice or opinions. Keep it almost strictly a story.
 '''
 
 middlepart_story = '''
@@ -56,7 +56,7 @@ Middle: Here, discuss every other thing we can relate to the story and/or the na
 Tell users about: similar cases like the one we’re discussing that explains why what we’re discussing is important, 
 other events in our own story that are a continuation of the events that have occurred.
 
-Don't conclude the story, don't prepare epilogue, don't give advice or opinions. Keep it almost strictly a story.
+Don't conclude the story, just iterupt it. Don't prepare epilogue, don't give advice or opinions. Keep it almost strictly a story.
 '''
 
 epilogue_story = '''
@@ -67,6 +67,27 @@ Everything must be a story,
 so it should be a continued story on the main events of the topic, the conclusion of the story, or another story that fits with the narrative. 
 
 Don't give advice or opinions. Keep it almost strictly a story. Don't make conclusion, don't prepare epilogue, don't include your point of view.
+'''
+
+snap_intro_story = '''
+A word is a group of letters separated by spaces, or the group of letters that starts or ends a sentence.
+Now, generate up to 20 words intro, containing the keywords from the topic sentence coherently present in it (not forced). 
+Don't conclude the story, don't prepare epilogue. Don't add items, this is intro and shouldn't spoil the future story.
+Don't use too many adjectives.
+'''
+
+snap_backstory_story = '''A word is a group of letters separated by spaces, or the group of letters that starts or ends a sentence. 
+Generate 680 - 750 words story, breaking down the timeline of things.
+
+If there's enough content, just write the story as a timeline of the events. If there's not enough content, write the story using “narratives”.
+This involves making use of the central theme, or idea, or stereotype, or expected presuppositions of the audience to write the story.
+A story with the narrative starts with Backstory: Introduce the topic and the main event in the story. Do not keep main event from the viewers. 
+We need to introduce them event early in a way that will hook them and buttress the narrative that we've come up with for the story. 
+We need to convince the viewers that it is what they should care about. 
+Each time we move to a different topic, make transitions into the next sections with this narrative in mind.
+Add mentions of peoples names, events, etc — it should be an fascinating story.
+
+Don't make up things, don't give advice or opinions. Story should not contain conclusion/epilogue. Just interrupt the story. NO CONCLUSION
 '''
 
 # _____________________________ LIST PROMPTS _____________________________
@@ -99,6 +120,16 @@ the conclusion of the story, or another story that fits with the narrative.
 Don't give advice or opinions. Keep it almost strictly a story. Don't use non-meaningful words, but rather concentrate on details.
 '''
 
+item_list_snap = lambda topic, topX, item_num: f'''
+A word is a group of letters separated by spaces, or the group of letters that starts or ends a sentence.
+Generate {int(600/topX)}-{int(750/topX)} words story on {topic} about next item (number {item_num}) from items, mensioned above.
+Concentrate on details. Don't use non-meaningful words. The story must be fascinating ad fairy tail, but at the same time it should be educational and contain facts.
+Don't make up things.
+Don't conclude the story, don't prepare epilogue, don't give advice or opinions. Keep it almost strictly a story.
+'''
+
+# _________________________________________________________________________
+
 WORD_COUNT = 5000
 PART_COUNT = int(WORD_COUNT/600)
 
@@ -106,6 +137,7 @@ STORY_YT_PROMPT = [intro_story, backstory_story, *[middlepart_story]*8, epilogue
 LIST_YT_PROMPT = lambda topX, topic: [intro_list, preparelist_list(topX, topic), 
                                       *[item_list(topic, topX, p+1) for p in range(topX)], 
                                       epilogue_list(topic)]
-STORY_SC_PROMPT = []
-LIST_SC_PROMPT = []
+STORY_SC_PROMPT = [snap_intro_story, snap_backstory_story]
+LIST_SC_PROMPT = lambda topX, topic: [snap_intro_story, preparelist_list(topX, topic), 
+                                      *[item_list_snap(topic, topX, p+1) for p in range(topX)]]
 
