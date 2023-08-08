@@ -1,164 +1,168 @@
-from dotenv import load_dotenv
 import os
+
+from langchain import PromptTemplate
+from langchain.chains import ConversationChain
+from langchain.chains.conversation.memory import ConversationSummaryBufferMemory
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import SystemMessage, HumanMessage
+from langchain.chains.summarize import load_summarize_chain
+
+from langchain.text_splitter import CharacterTextSplitter
+import textwrap
+
+from dotenv import load_dotenv
 import streamlit as st
 from streamlit_chat import message
 
-from langchain import OpenAI, PromptTemplate
-from langchain.chains import ConversationChain
-from langchain.memory import ConversationBufferMemory
-
-template = """
-CONTEXT:
-You are a ScriptWriter for YouTube and SnapChat Bloggers. You have experience in building a story around a given topic.
-
-GOAL:
-You will become my scriptwriter today. You need to help me to prepare a story for the video.
-
-INITIAL RULES FOR SCRIPTS:
-a) Use words for dates: 1970s = nineteen-seventies. 
-b) Don't use dollar sign: for instance $20 = 20 dollars OR $20 bond = twenty-dollar bond 
-c) Use "to" instead of hypen: 2-10 people = 2 to 10 people 
-d) Don't use slashes: 20/20 = twenty-twenty
-e) Any symbol should be properly spelt out: 900km/h = 900 kilometers per hour 
-f) Number should be read digit-by-digit: 911 = 9-1-1 OR Boeing 707 = Boeing seven-oh-seven 
-g) Put a full-stop after each header and leave one paragraph space above and below.
-
-CRITERIA OF THE BEST SCRIPT:
-Don't make up things. 
-Avoid Unnecessary repetition of certain events or plot points in a story
-Don't add info that don’t align with the topic or perceived narrative of the story 
-Don't give advice or opinions. Keep it almost strictly story. 
-The story should be educational and contain facts. 
-Add as many details as possible.
-Avoid using buzzwords like 'additionally', 'in this section' and so on. 
-Don't repeat names of characters. 
-Don't introduce yourself as AI bot, just write the story.
-Don't use the word ENTRY in the list script.
-
-STRUCTURE OF SCRIPTWRITING SESSION:
-1. I will set the topic and social media: YouTube or SnapChat
-2. I will specify the type of script - story script or list script
-3. You will return a script
-4. I will check the content and may ask you to regenerate som information
-5. You will regenerate more information if needed
-
-FORMAT OF OUR INTERACTION
-— I will let you know when we can proceed to the next step. Don't go there without my instructions.
-— You will rely on the context of this script writing session at every step.
-
-INFORMATION ABOUT SCRIPT TYPES AND SOCIAL MEDIA:
-YouTube List Script:
-A total word count of 4000 - 5000 words.
-Strat from an 80-200 words intro, containing the keywords from the topic sentence coherently present in it (not forced).
-X number of entries/sections with a similar word count range. For example, for topic “X Deadliest Gangs in the US”, if we find 10 entries (X=10), then each section has to have between 400 - 600 words to match the 5,000-total word count requirement. If we find 20 entries (X=20), then each section has to have between 200 - 300 words to match the 5,000-total word count requirement.
-
-YouTube Story Script:
-A total word count of 5000 words.
-Strat from an 80-200 words intro, containing the keywords from the topic sentence coherently present in it (not forced), then a full story (with sections if necessary) breaking down the timeline of things. 
-A full story (with sections if necessary) breaking down the timeline of things. 
-X number of entries/sections with a similar word count range (each section highlights a new idea, act, timeline, or plot point, in the story that relates back to and occasionally mentions the central theme and narrative present in the topic)
-If there’s enough content, just write the story as a timeline of the events. If there’s not enough content, write the story using “narratives”. This involves making use of the central theme, or idea, or stereotype, or expected presuppositions of the audience to write the story. A story with the narrative combines different parts: 1. Backstory: Introduce the topic and the main event in the story. Do not keep main event from the viewers. We need to introduce them event early in a way that will hook them and buttress the narrative that we’ve come up with for the story. We need to convince the viewers that it is what they should care about. Each time we move to a different topic, make transitions into the next sections with this narrative in mind. 2. Middle: Here, discuss every other thing we can relate to the story and/or the narrative. Tell users about: similar cases like the one we’re discussing that explains why what we’re discussing is important, other events in our own story that are a continuation of the events that have occurred. 3. End: Conclude with a section reprising the narrative. Everything must be a story, so it should be a continued story on the main events of the topic, the conclusion of the story, or another story that fits with the narrative. 
-3. SnapChat List Script:
-a) A total word count of 680 - 750 words.
-b) Strat from a 20 words intro, containing the keywords from the topic sentence coherently present in it (not forced)
-c) Prepare 12 - 16 entries/sections with a word count range of 45 - 55 words each.
-
-4. SnapChat Story Script:
-a) A total word count of 680 - 750 words.
-b) Strat from a 20 words intro, containing the keywords from the topic sentence coherently present in it (not forced)
-c) Prepare a full story (with sections if necessary) breaking down the timeline of things.
-
-HISTORY:
-{input}, {history}
-"""
-
-
-from langchain.schema import (
-    SystemMessage,
-    HumanMessage
+from prompt_lib import (
+    STARTER_PROMPT,
+    STORY_YT_PROMPT,
+    LIST_YT_PROMPT,
+    STORY_SC_PROMPT,
+    LIST_SC_PROMPT,
 )
+
+SOCIAL_MEDIA = ["YouTube", "SnapChat"]
+SCRIPT_TYPE = ["Story Script", "List Script"]
+
 
 def init():
     load_dotenv()
-
     if os.getenv("OPENAI_API_KEY") is None or os.getenv("OPENAI_API_KEY") == "":
         print("OPENAI_API_KEY is not set")
         exit(1)
     else:
         print("OPENAI_API_KEY is set")
+    st.set_page_config(page_title="ScriptWriter Bot", page_icon="🖋🎥")
 
-    st.set_page_config(
-        page_title="ScriptWriter Bot",
-        page_icon="🖋🎥"
-    )
 
 def main():
     init()
-
-    chat = OpenAI(
-        temperature=0.1,	
-        model_name="gpt-3.5-turbo"
-        )
-
+    chat = ChatOpenAI(temperature=0.1, model_name="gpt-3.5-turbo")
     if "messages" not in st.session_state:
-        st.session_state.messages = [
-            SystemMessage(input_variables=["input", "history"], content=template)
-            ]
+        st.session_state.messages = [SystemMessage(input_variables=["input", "history"], content=STARTER_PROMPT)]
 
     st.header("ScriptWriter Bot 🖋🎥")
+    PROMPT = PromptTemplate(template=STARTER_PROMPT, input_variables=["input", "history"])
+    conversation = ConversationChain(
+        prompt=PROMPT, llm=chat, memory=ConversationSummaryBufferMemory(llm=chat, max_token_limit=650), verbose=True
+    )
 
-    PROMPT = PromptTemplate(template=template, input_variables=["input", 'history'])
-
-    conversation = ConversationChain(prompt=PROMPT, llm=chat, memory=ConversationBufferMemory(ai_prefix="ScriptWriter", human_prefix="MainEditor"), verbose=True)
+    print(conversation.prompt.template)  #
 
     def generate_response(prompt):
-        pred = conversation.predict(input=prompt)
-        return pred
+        return conversation.predict(input=prompt)
 
     with st.sidebar:
         st.header("🖋 Script Details")
         st.subheader("Specify below the topic, type of script, and social media platform: ")
         user_input = st.text_input("Enter the topic: ", key="user_input")
-        script_type = st.sidebar.selectbox("Select the type of script", [None, "List Script", "Story Script"])
-        platform = st.sidebar.selectbox("Select platform", [None, "YouTube", "SnapChat"])
-        
-        is_generate_script = st.button('Generate script')
+        script_type = st.selectbox("Select the type of script", [None, SCRIPT_TYPE[0], SCRIPT_TYPE[1]])
+
+        # send to list utils:
+        if script_type == SCRIPT_TYPE[1]:
+            topX = st.text_input("Enter number of items in the list (Top X..). 5-10 is recommended", key="top X")
+            if topX:
+                topX = int(topX)
+        ####################
+
+        platform = st.selectbox("Select platform", [None, SOCIAL_MEDIA[0], SOCIAL_MEDIA[1]])
+
+        load_text = st.text_area("Text to extend knowledge (optional): ", key="load_text")
+
+        is_generate_script = st.button("Generate script")
+
+        # Improve this logic:
         if is_generate_script and not user_input:
-            st.error("Please, enter the topic and click the button to generate script.")
-            
-        if 'generated' not in st.session_state:
-            start_writer = 'Hi! I am your ScriptWriter Bot! Let\'s get started!'
-            st.session_state['generated'] = [start_writer]
+            st.error('Click the "Generate script" button to generate script.')
+        ####################
 
-        if 'past' not in st.session_state:
-            st.session_state['past'] = ['Hi!']
-            
-        is_edit_mode = st.button('Edit script')
-        if is_edit_mode and not user_input:
-            st.error("Nothing to edit. Please, enter the topic and click the button to generate script.")
+        if "generated" not in st.session_state:
+            start_writer = "Hi! I am your ScriptWriter Bot! Let's get started!"
+            st.session_state["generated"] = [start_writer]
 
-        if user_input:
-            if script_type != None and platform != None and is_generate_script:
-                st.session_state.messages.append(HumanMessage(content='topic:' + user_input + ', type of script: ' + script_type + ', platform: ' + platform))
+        if "past" not in st.session_state:
+            st.session_state["past"] = ["Hi!"]
+
+        # load_link = st.text_input("Link on new article to extend knowledge: ", key="load_link")
+
+        # st.write("Click the button to save the script to Google Docs.")
+        # is_save_script = st.button("Save script to Google Docs")
+        # if is_save_script and is_generate_script:
+        #     st.write("Script will be uploaded.")
+        # elif is_save_script and not is_generate_script:
+        #     st.error("Nothing to save. Please, enter the topic and click the button to generate script.")
+
+    if user_input and script_type and platform:
+        if script_type == SCRIPT_TYPE[0] and platform == SOCIAL_MEDIA[0]:
+            PROMPT_ORDER = STORY_YT_PROMPT(user_input)
+        elif script_type == SCRIPT_TYPE[0] and platform == SOCIAL_MEDIA[1]:
+            PROMPT_ORDER = STORY_SC_PROMPT
+        elif script_type == SCRIPT_TYPE[1] and platform == SOCIAL_MEDIA[0]:
+            PROMPT_ORDER = LIST_YT_PROMPT(topX, user_input)
+        elif script_type == SCRIPT_TYPE[1] and platform == SOCIAL_MEDIA[1]:
+            PROMPT_ORDER = LIST_SC_PROMPT(topX, user_input)
+
+        # link_context = "use context from html page in script: " + str(get_links(load_link)) if load_link else ""
+        if load_text:
+            chain = load_summarize_chain(chat, chain_type="map_reduce", verbose=True)
+            text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+            docs = text_splitter.create_documents([load_text])
+            output_summary = chain.run(docs)
+            wrapped_text = textwrap.fill(output_summary, width=300)
+
+        additional_text = "this text is ground truth, use it in script: " + wrapped_text if load_text else ""
+
+        list_or_content = ""
+        if script_type and platform and is_generate_script:
+            st.session_state.messages.append(HumanMessage(content="topic:" + user_input))
+            st.session_state.past.append(user_input)
+            for i, prompt in enumerate(PROMPT_ORDER):
                 with st.spinner("Please, wait. I am in the process of creating script for you..."):
-                    response = generate_response(user_input)
-                st.session_state.past.append(user_input)
-                st.session_state.generated.append(response)
-            elif not is_generate_script and not is_edit_mode:
-                st.error("Please, select the type of script and platform and click the button to generate script.")
+                    if script_type == SCRIPT_TYPE[1]:
+                        final_prompt = (
+                            "SESSION INFO: topic - Top "
+                            + ", items are: "
+                            + str(topX)
+                            + " "
+                            + user_input
+                            + "; "
+                            + list_or_content
+                            + " "
+                            + additional_text
+                            + "; "
+                            + prompt
+                        )
+                    else:
+                        final_prompt = (
+                            "SESSION INFO: topic - " + user_input + "; " + list_or_content + " " + additional_text + "; " + prompt
+                        )
+                    response = generate_response(final_prompt)
 
-        st.write('Click the button to save the script to Google Docs.')
-        is_save_script = st.button('Save script to Google Docs')
-        if is_save_script and is_generate_script or is_edit_mode:
-            st.write('Script will be uploaded.')
-        elif is_save_script and not is_generate_script and not is_edit_mode:
-            st.error("Nothing to save. Please, enter the topic and click the button to generate script.")
-            
-    
-    if st.session_state['generated']:
-        for i in range(len(st.session_state['generated'])-1, -1, -1):
-            message(st.session_state["past"][i], is_user=True, key=str(i) + '_user')
-            message(st.session_state["generated"][i], key=str(i))
+                    print("RESPONSE #" + str(i + 1) + ": " + response)
+                    if i == 1:
+                        list_or_content = (
+                            "Use items from this list for further generation! Don't tell a story of same item multiple times" + response
+                        )
+                    st.session_state.generated.append(response)  # "RESPONSE #" + str(i + 1) + ": " + response)
+                    st.session_state.past.append("Continue")
 
-if __name__ == '__main__':
+        elif not is_generate_script:
+            st.error('Click the "Generate script" button to generate script.')
+
+    if st.session_state["generated"]:
+        message(st.session_state["past"][0], is_user=True, key="_user")
+        message(st.session_state["generated"][0], key=str(0))
+
+        final_message_past, final_message_gen = [], []
+        for i in range(1, len(st.session_state["generated"])):
+            if i != 2 or (platform == SOCIAL_MEDIA[1] and script_type == SCRIPT_TYPE[0]):
+                final_message_past.append(st.session_state["past"][i])
+                final_message_gen.append(st.session_state["generated"][i])
+        # message(' '.join(final_message_past), key="_user")
+        message(user_input, is_user=True, key="_user2")
+        message(" ".join(final_message_gen), key="generated")
+
+
+if __name__ == "__main__":
     main()
