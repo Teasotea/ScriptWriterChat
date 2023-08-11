@@ -38,7 +38,7 @@ def init():
 
 def main():
     init()
-    chat = ChatOpenAI(temperature=0.1, model_name="gpt-3.5-turbo")
+    chat = ChatOpenAI(temperature=0.1, model_name="gpt-4")  # "gpt-3.5-turbo"
     if "messages" not in st.session_state:
         st.session_state.messages = [SystemMessage(input_variables=["input", "history"], content=STARTER_PROMPT)]
 
