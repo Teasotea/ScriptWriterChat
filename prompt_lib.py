@@ -104,7 +104,7 @@ snap_backstory_story = """
 If you will add introduction or conclusuion, you will be punished.
 
 A word is a group of letters separated by spaces, or the group of letters that starts or ends a sentence.
-Generate 700 - 750 words story, breaking down the timeline of things.
+Generate 400 words story, breaking down the timeline of things.
 
 If there's enough content, just write the story as a timeline of the events. If there's not enough content, write the story using “narratives”.
 This involves making use of the central theme, or idea, or stereotype, or expected presuppositions of the audience to write the story.
@@ -114,6 +114,18 @@ We need to convince the viewers that it is what they should care about.
 Each time we move to a different topic, make transitions into the next sections with this narrative in mind.
 Add mentions of peoples names, events, etc — it should be an fascinating story.
 
+Don't make up things, don't give advice or opinions. Don't add conclusion! Just interrupt the story. This is snap script - which means conclusion is not allowed.
+"""
+
+snap_backstory_story2 = """
+! NEVER REPEAT YOURSELF.
+! NO INTRODUCTIONS.
+! NO CONCLUSIONS.
+If you will add introduction or conclusuion, you will be punished.
+
+A word is a group of letters separated by spaces, or the group of letters that starts or ends a sentence.
+Generate 300 words story, to continue previously generated story, fullfill the stroy with new facts and details that were not mentioned before.
+Stoey should look like an interesting tale, but at the same time it should be educational and contain as many facts as possible.
 Don't make up things, don't give advice or opinions. Don't add conclusion! Just interrupt the story. This is snap script - which means conclusion is not allowed.
 """
 
@@ -180,11 +192,7 @@ Don't conclude the story, don't prepare epilogue, don't give advice or opinions.
 
 WORD_COUNT = 5000
 PART_COUNT = int(WORD_COUNT / 800)
-STORY_YT_PROMPT = lambda topic: [
-    intro_list,
-    prepare_content,
-    *[item_list(topic, 8, p + 1) for p in range(8)],
-    epilogue_story]
+STORY_YT_PROMPT = lambda topic: [intro_list, prepare_content, *[item_list(topic, 8, p + 1) for p in range(8)], epilogue_story]
 
 LIST_YT_PROMPT = lambda topX, topic: [
     intro_list,
@@ -192,5 +200,5 @@ LIST_YT_PROMPT = lambda topX, topic: [
     *[item_list(topic, topX, p + 1) for p in range(topX)],
     epilogue_list(topic),
 ]
-STORY_SC_PROMPT = [snap_intro_story, snap_backstory_story]
+STORY_SC_PROMPT = [snap_intro_story, snap_backstory_story, snap_backstory_story2]
 LIST_SC_PROMPT = lambda topX, topic: [snap_intro_story, preparelist_list(topX, topic), item_list_snap(topic)]

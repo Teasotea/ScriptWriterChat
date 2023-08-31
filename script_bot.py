@@ -137,14 +137,14 @@ def main():
                         final_prompt = (
                             "SESSION INFO: topic - " + user_input + "; " + list_or_content + " " + additional_text + "; " + prompt
                         )
-                    response = generate_response(final_prompt)
+                    response = generate_response(final_prompt) + "\n\n"
 
                     print("RESPONSE #" + str(i + 1) + ": " + response)
                     if i == 1:
                         list_or_content = (
                             "Use items from this list for further generation! Don't tell a story of same item multiple times" + response
                         )
-                    st.session_state.generated.append(response)  # "RESPONSE #" + str(i + 1) + ": " + response)
+                    st.session_state.generated.append("RESPONSE #" + str(i + 1) + ": " + response)  #
                     st.session_state.past.append("Continue")
 
         elif not is_generate_script:
