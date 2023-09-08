@@ -6,9 +6,14 @@ from langchain.chains.conversation.memory import ConversationSummaryBufferMemory
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage
 from langchain.chains.summarize import load_summarize_chain
+from langchain.text_splitter import SpacyTextSplitter
 
 from langchain.text_splitter import CharacterTextSplitter
 import textwrap
+
+import spacy
+
+spacy.load("en_core_web_sm")
 
 from dotenv import load_dotenv
 import streamlit as st
@@ -21,6 +26,8 @@ from prompt_lib import (
     STORY_SC_PROMPT,
     LIST_SC_PROMPT,
 )
+
+from transcript_loader import get_transcript
 
 SOCIAL_MEDIA = ["YouTube", "SnapChat"]
 SCRIPT_TYPE = ["Story Script", "List Script"]
@@ -68,11 +75,12 @@ def main():
 
         platform = st.selectbox("Select platform", [None, SOCIAL_MEDIA[0], SOCIAL_MEDIA[1]])
 
+        load_video = st.text_input("Video reference (YouTube link, optional): ", key="load_video")
+
         load_text = st.text_area("Text to extend knowledge (optional): ", key="load_text")
 
         is_generate_script = st.button("Generate script")
 
-        # Improve this logic:
         if is_generate_script and not user_input:
             st.error('Click the "Generate script" button to generate script.')
         ####################
@@ -103,7 +111,10 @@ def main():
         elif script_type == SCRIPT_TYPE[1] and platform == SOCIAL_MEDIA[1]:
             PROMPT_ORDER = LIST_SC_PROMPT(topX, user_input)
 
+        text_splitter = SpacyTextSplitter(chunk_size=5000)
+
         # link_context = "use context from html page in script: " + str(get_links(load_link)) if load_link else ""
+
         if load_text:
             chain = load_summarize_chain(chat, chain_type="map_reduce", verbose=True)
             text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
@@ -111,7 +122,30 @@ def main():
             output_summary = chain.run(docs)
             wrapped_text = textwrap.fill(output_summary, width=300)
 
-        additional_text = "this text is ground truth, use it in script: " + wrapped_text if load_text else ""
+        if load_video:
+            transcript_text = textwrap.fill(get_transcript(load_video), width=300)
+            transcript_texts = text_splitter.split_text(transcript_text)
+            print(len(transcript_texts))
+
+            chain = load_summarize_chain(chat, chain_type="map_reduce", verbose=True)
+            text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+            # wrapped_texts = ""
+            # for i in transcript_texts:
+            #     docs = text_splitter.create_documents([i])
+            #     output_summary = chain.run(docs)
+            #     wrapped_texts += textwrap.fill(output_summary, width=500) + "\n\n"
+
+            # docs = text_splitter.create_documents([wrapped_texts])
+            # output_summary = chain.run(docs)
+            # wrapped_text = textwrap.fill(output_summary, width=500)
+
+            docs = text_splitter.create_documents([transcript_texts[0]])
+            output_summary = chain.run(docs)
+            wrapped_text = textwrap.fill(output_summary, width=500)
+
+        additional_text = "this text is ground truth, use it in script: " + wrapped_text if load_text or load_video else ""
+
+        print(additional_text)
 
         list_or_content = ""
         if script_type and platform and is_generate_script:
@@ -144,7 +178,7 @@ def main():
                         list_or_content = (
                             "Use items from this list for further generation! Don't tell a story of same item multiple times" + response
                         )
-                    st.session_state.generated.append("RESPONSE #" + str(i + 1) + ": " + response)  #
+                    st.session_state.generated.append(response)  # "RESPONSE #" + str(i + 1) + ": " + response
                     st.session_state.past.append("Continue")
 
         elif not is_generate_script:

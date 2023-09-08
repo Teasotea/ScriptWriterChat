@@ -74,3 +74,5 @@ nltk==3.8.1
 nest_asyncio==1.5.7
 lxml==4.9.3
 bs4==0.0.1
+youtube_transcript_api==0.6.1
+spacy==3.6.1
